@@ -1,0 +1,15 @@
+# Julia
+Manifest.toml
+/.julia/
+*.cov
+
+# Runtime artifacts — regenerated on boot
+server.log
+server.pid
+/tmp/mork_server_files/
+0000*-0000000000000000-*
+
+# Editor
+.vscode/
+*.swp
+.DS_Store
