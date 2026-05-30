@@ -65,32 +65,9 @@ function _parse_pattern_template(ss::ServerSpace, pat_str::String, tpl_str::Stri
     (pat, tpl)
 end
 
-# _derive_prefix: constant prefix of expr up to first NewVar/VarRef.
-# "a" → full; "(isa)" → full; "(isa \$x \$y)" → [Arity3, "isa"]; "\$x" → []
-# Mirrors derive_prefix_from_expr_slice + till_constant_to_full (upstream 83d1276).
-function _derive_prefix(expr::MORK.Expr) :: Vector{UInt8}
-    buf = expr.buf
-    n   = length(buf)
-    # BFS walk via an explicit stack of (offset, remaining_children) pairs.
-    # We include bytes only while they are constant (Symbol or Arity header).
-    # As soon as we see a NewVar or VarRef, we stop.
-    i = 1
-    stack = Int[]   # remaining child counts at each depth
-    while i <= n
-        b   = buf[i]
-        tag = byte_item(b)
-        if tag isa ExprNewVar || tag isa ExprVarRef
-            break   # variable encountered — stop here
-        elseif tag isa ExprSymbol
-            i += 1 + Int(tag.size)   # include symbol bytes
-        elseif tag isa ExprArity
-            i += 1   # include the arity header byte, push children
-        else
-            break
-        end
-    end
-    buf[1:i-1]
-end
+# _derive_prefix moved to MORK kernel (src/expr/Expr.jl) on 2026-05-30 — the
+# kernel's `space_metta_calculus_at!` needs it, so it belongs in MORK. We
+# import it via `using MORK: _derive_prefix` in MorkServer.jl.
 
 # Parse transform POST body: "(transform (, pat...) (, tpl...))"
 # Mirrors pattern_template_args in commands.rs

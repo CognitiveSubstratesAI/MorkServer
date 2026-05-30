@@ -41,6 +41,7 @@ using PathMap
 # via bare-name resolution that worked when these files lived inside MORK.
 using MORK: Space, ACT_PATH,
             sexpr_to_expr, expr_serialize,
+            _derive_prefix,
             space_add_sexpr!, space_dump_sexpr,
             space_load_csv!, space_load_json!,
             space_metta_calculus_at!,
