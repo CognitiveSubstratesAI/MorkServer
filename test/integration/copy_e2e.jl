@@ -1,9 +1,23 @@
 # test/integration/copy_e2e.jl — ports copy command tests
 # Tests /copy/<src>/<dst> — mirrors wz.graft(&rz) in Rust server
-# Run from warm REPL against running server on port 8080.
-using MORK, Test, HTTP, JSON3
+#
+# Spins up its own MorkServer on a private port — was originally
+# designed to run against a developer-launched server on :8080, but
+# that didn't work in `runtests.jl` (2026-05-30).
+using MORK, MorkServer, Test, HTTP, JSON3
 
-const COPY_BASE = "http://localhost:8080"
+const COPY_PORT = 9903
+const COPY_BASE = "http://127.0.0.1:$COPY_PORT"
+
+let
+    ss = ServerSpace()
+    serve_background!(ss, COPY_PORT)
+    deadline = time() + 15.0
+    while time() < deadline
+        try; HTTP.get("$COPY_BASE/status/-"; readtimeout=1, connect_timeout=1); break
+        catch; sleep(0.2); end
+    end
+end
 
 function _copy_get(path)
     r = HTTP.get("$COPY_BASE$path"; readtimeout=10, connect_timeout=5)
@@ -59,3 +73,5 @@ sleep(0.3)
 end
 
 _copy_get("/clear/%24")
+
+try; HTTP.get("$COPY_BASE/stop"); catch; end

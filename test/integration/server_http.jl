@@ -235,7 +235,7 @@ end
     r = HTTP.get(metta_thread_url)
     @test r.status == 200
     println("metta_thread: $(String(r.body))")
-    wait_for_status_eq(thread_status_url, "pathClear"; timeout_s=15.0)
+    wait_for_status_eq(thread_status_url, "pathClear", 15.0)
 
     sleep(0.05)
 
