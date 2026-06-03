@@ -218,11 +218,32 @@ function sm_clear_user_status!(sm::StatusMap, path::Vector{UInt8})
     end
 end
 
+# Two paths overlap iff one is a prefix of the other — i.e. they touch overlapping
+# subtrees of the primary map. Upstream tracks this with ZipperTracker (read/write
+# trackers reject overlapping conflicting claims); our StatusMap stands in for it, so
+# the conflict check MUST be prefix-aware, not exact-path. Exact-path-only let a
+# writer at "P:" coexist with a writer at "P:x" → concurrent overlapping writes to
+# btm (MORK mutates btm directly, no zipper-tracking underneath) → corruption (S-1).
+@inline function _paths_overlap(a::Vector{UInt8}, b::Vector{UInt8})::Bool
+    n = min(length(a), length(b))
+    @inbounds for i in 1:n
+        a[i] == b[i] || return false
+    end
+    true   # all shared bytes match → the shorter is a prefix of the longer
+end
+
+# A reader conflicts only with an overlapping WRITER (readers coexist with readers).
+@inline _reader_conflict(sm::StatusMap, path) = any(w -> _paths_overlap(w, path), sm.writers)
+# A writer conflicts with any overlapping reader OR writer.
+@inline _writer_conflict(sm::StatusMap, path) =
+    any(w -> _paths_overlap(w, path), sm.writers) ||
+    any(r -> _paths_overlap(r, path), keys(sm.readers))
+
 function sm_get_read_permission(sm::StatusMap, path::Vector{UInt8}) :: Union{ReadPermission, Nothing}
     perm_and_snap = lock(sm.lock) do
         user_st = get(sm.user_status, path, StatusRecord())
         status_blocks_reader(user_st) && return (nothing, nothing)
-        path in sm.writers              && return (nothing, nothing)
+        _reader_conflict(sm, path)      && return (nothing, nothing)
         sm.readers[path] = get(sm.readers, path, 0) + 1
         (ReadPermission(path, sm, false), _sm_snapshot_streams(sm, path))
     end
@@ -246,7 +267,7 @@ function sm_get_write_permission(sm::StatusMap, path::Vector{UInt8}) :: Union{Wr
     perm_and_snap = lock(sm.lock) do
         user_st = get(sm.user_status, path, StatusRecord())
         status_blocks_writer(user_st)                          && return (nothing, nothing)
-        (haskey(sm.readers, path) || path in sm.writers)       && return (nothing, nothing)
+        _writer_conflict(sm, path)                             && return (nothing, nothing)
         delete!(sm.user_status, path)   # clear user status on write acquisition
         push!(sm.writers, path)
         (WritePermission(path, sm, false), _sm_snapshot_streams(sm, path))

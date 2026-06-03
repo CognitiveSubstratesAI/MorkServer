@@ -6,6 +6,9 @@ using MorkServer
     @testset "unit/resource_store" begin
         include(joinpath(@__DIR__, "unit", "resource_store.jl"))
     end
+    @testset "unit/server_space" begin
+        include(joinpath(@__DIR__, "unit", "server_space.jl"))
+    end
 
     # Integration tests — spin up a real HTTP server per test file.
     # These were moved from packages/MORK/test/integration/ on 2026-05-30
