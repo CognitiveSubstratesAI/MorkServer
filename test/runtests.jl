@@ -2,6 +2,11 @@ using Test
 using MorkServer
 
 @testset "MorkServer" begin
+    # Unit tests — no server; exercise a layer directly.
+    @testset "unit/resource_store" begin
+        include(joinpath(@__DIR__, "unit", "resource_store.jl"))
+    end
+
     # Integration tests — spin up a real HTTP server per test file.
     # These were moved from packages/MORK/test/integration/ on 2026-05-30
     # when MORK kernel and server were split into separate packages.

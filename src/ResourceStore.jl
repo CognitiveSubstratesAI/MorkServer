@@ -54,10 +54,17 @@ function rh_finalize!(h::ResourceHandle, new_timestamp::UInt64)
     h.path = nothing
 end
 
-# Cleanup on GC (mirrors Drop impl — removes in-progress file)
+# Removes the in-progress file if the handle was not finalized. Idempotent.
+# Registered as a `finalizer` in `rs_new_resource` (below) so an abandoned handle
+# is cleaned up on GC — together with the explicit `close` calls on command error
+# paths, this mirrors Rust `impl Drop for ResourceHandle` (which removes the file
+# unconditionally when the handle is dropped un-finalized).
 function Base.close(h::ResourceHandle)
     if h.path !== nothing
-        try; rm(h.path); catch; end
+        try
+            rm(h.path)
+        catch
+        end
         h.path = nothing
     end
 end
@@ -105,7 +112,12 @@ function rs_new_resource(store::ResourceStore, identifier::String, cmd_id::UInt6
     path = joinpath(store.dir_path, file_name)
     isfile(path) && error("Resource already in-progress: $identifier")
     touch(path)
-    ResourceHandle(cmd_id, identifier, path)
+    h = ResourceHandle(cmd_id, identifier, path)
+    # Drop parity: if this handle is abandoned (un-finalized, e.g. an exception or
+    # cancelled import that skipped the explicit close), GC removes the in-progress
+    # file. Mirrors Rust `impl Drop for ResourceHandle`.
+    finalizer(close, h)
+    h
 end
 
 """
@@ -123,7 +135,13 @@ end
     rs_purge_before!(store, threshold_timestamp)
 
 Remove all files with timestamp < threshold.
-Mirrors `ResourceStore::purge_before_timestamp`.
+Mirrors `ResourceStore::purge_before_timestamp` (which is `#[allow(unused)]`
+upstream — reserved for snapshot restore; unused here too).
+
+Deliberate divergence: parses the timestamp prefix as base-16, matching the hex
+format written by `rh_finalize!` (`string(ts, base=16, pad=16)`). Upstream parses
+it as base-10 (`from_str_radix(.., 10)`) despite formatting it as `{:0>16x}` hex —
+a latent inconsistency that only works while timestamps avoid hex digits a–f.
 """
 function rs_purge_before!(store::ResourceStore, threshold::UInt64)
     for entry in readdir(store.dir_path; join=true)
