@@ -163,13 +163,18 @@ function cmd_copy(ss::ServerSpace, args::Vector{String}, props::Dict{String,Stri
             ss_release_reader!(ss, reader); return work_error(503, "copy: dest path is locked")
         end
         try
-            # Mirrors wz.graft(&rz) — copy every value from src subtrie to dst.
-            # Read all relative paths under src_prefix, write each at dst_prefix + rel_path.
-            rz = read_zipper_at_path(ss.space.btm, src_prefix)
-            while zipper_to_next_val!(rz)
-                rel_path = collect(zipper_path(rz))
-                set_val_at!(ss.space.btm, vcat(dst_prefix, rel_path), UNIT_VAL)
-            end
+            # wz.graft(&rz): O(1) by-REFERENCE graft of the src subtrie into dst —
+            # structural sharing, the src nodes are shared (refcount-bumped), not
+            # value-copied path-by-path. COW-safe: a later write under either prefix
+            # uniquifies the shared nodes on descent (WriteZipper _wz_ensure_write_unique!,
+            # node-keyed @atomic refcount), so neither side corrupts the other. (Verified:
+            # graft-then-write-into-shared leaves the source byte-identical.) This needs
+            # the COW work landed in PathMap ec138d4/aa76fbd — before that, sharing the
+            # subtrie would have been unsafe, which is why this was previously a value-copy.
+            src_anr = tr_get_focus_anr(trie_ref_at_path(ss.space.btm, src_prefix))
+            wz = write_zipper(ss.space.btm)
+            wz_descend_to!(wz, dst_prefix)
+            wz_graft!(wz, src_anr)
         finally
             ss_release_reader!(ss, reader)
             ss_release_writer!(ss, writer)
