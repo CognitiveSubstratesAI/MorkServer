@@ -13,3 +13,5 @@ server.pid
 .vscode/
 *.swp
 .DS_Store
+docs/build/
+docs/Manifest.toml

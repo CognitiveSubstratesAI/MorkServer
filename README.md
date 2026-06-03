@@ -1,6 +1,13 @@
 # MorkServer.jl
 
-HTTP server layer for [MORK](https://github.com/sivaji1012/MORK).
+[![CI](https://github.com/CognitiveSubstratesAI/MorkServer/actions/workflows/CI.yml/badge.svg)](https://github.com/CognitiveSubstratesAI/MorkServer/actions/workflows/CI.yml)
+[![Docs (stable)](https://img.shields.io/badge/docs-stable-blue.svg)](https://cognitivesubstratesai.github.io/MorkServer/stable/)
+[![Docs (dev)](https://img.shields.io/badge/docs-dev-blue.svg)](https://cognitivesubstratesai.github.io/MorkServer/dev/)
+[![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![Julia 1.12+](https://img.shields.io/badge/Julia-1.12%2B-blue)](https://julialang.org)
+
+HTTP server layer for [MORK](https://github.com/CognitiveSubstratesAI/MORK).
 
 Ports the upstream `mork/server/` Rust crate. Provides:
 

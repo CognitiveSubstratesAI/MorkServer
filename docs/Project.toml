@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MorkServer = "3e7d4c8a-1f9b-4a52-8c6e-7b5e9d2c1a08"
+
+[compat]
+Documenter = "1"
