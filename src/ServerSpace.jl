@@ -320,7 +320,8 @@ function sm_shutdown!(sm::StatusMap)
         for (path, chs) in sm.streams
             for ch in chs
                 try
-                    ; put!(ch, StatusRecord(SERVER_SHUTDOWN));
+                    ;
+                    put!(ch, StatusRecord(SERVER_SHUTDOWN));
                 catch
                     ;
                 end

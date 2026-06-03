@@ -262,7 +262,8 @@ end
 
 println("\n=== Stopping test server ===")
 try
-    ; HTTP.get("$SERVER_URL/stop?wait_for_idle");
+    ;
+    HTTP.get("$SERVER_URL/stop?wait_for_idle");
 catch
     ;
 end

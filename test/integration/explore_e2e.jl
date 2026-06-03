@@ -19,7 +19,8 @@ let
             HTTP.get("$EXPLORE_BASE/status/-"; readtimeout=1, connect_timeout=1);
             break
         catch
-            ; sleep(0.2);
+            ;
+            sleep(0.2);
         end
     end
 end
@@ -90,7 +91,8 @@ end
 _exp_get("/clear/%24")
 
 try
-    ; HTTP.get("$EXPLORE_BASE/stop");
+    ;
+    HTTP.get("$EXPLORE_BASE/stop");
 catch
     ;
 end

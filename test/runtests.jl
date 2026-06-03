@@ -7,7 +7,7 @@ using Aqua
         # deps_compat check_extras=false: the Test/Aqua extras are dev-only; runtime
         # deps (HTTP, JSON3, MORK, PathMap) carry [compat] (MORK/PathMap dev-linked
         # via [sources], so deps_compat skips them).
-        Aqua.test_all(MorkServer; deps_compat = (check_extras = false,))
+        Aqua.test_all(MorkServer; deps_compat=(check_extras=false,))
     end
 
     # Unit tests — no server; exercise a layer directly.
