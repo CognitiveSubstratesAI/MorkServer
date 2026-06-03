@@ -14,8 +14,13 @@ let
     serve_background!(ss, COPY_PORT)
     deadline = time() + 15.0
     while time() < deadline
-        try; HTTP.get("$COPY_BASE/status/-"; readtimeout=1, connect_timeout=1); break
-        catch; sleep(0.2); end
+        try
+            ;
+            HTTP.get("$COPY_BASE/status/-"; readtimeout=1, connect_timeout=1);
+            break
+        catch
+            ; sleep(0.2);
+        end
     end
 end
 
@@ -34,7 +39,9 @@ function _copy_wait_status(expr_url; timeout_s=5.0)
             j = JSON3.read(HTTP.get("$COPY_BASE/status/$expr_url"; readtimeout=2).body)
             s = String(j[:status])
             s ∉ ("locked", "counting") && return j
-        catch; end
+        catch
+            ;
+        end
         sleep(0.1)
     end
     nothing
@@ -74,4 +81,8 @@ end
 
 _copy_get("/clear/%24")
 
-try; HTTP.get("$COPY_BASE/stop"); catch; end
+try
+    ; HTTP.get("$COPY_BASE/stop");
+catch
+    ;
+end

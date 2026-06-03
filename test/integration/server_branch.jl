@@ -13,7 +13,7 @@ using Test
     s = new_space()
     e = space_sexpr_to_expr(s, "[3] a [2] b c d")
 
-    first_str  = String[]
+    first_str = String[]
     second_str = String[]
 
     ez = ExprZipper(e, 1)

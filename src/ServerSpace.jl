@@ -37,40 +37,42 @@ Used by the status command and permission system.
 end
 
 mutable struct StatusRecord
-    kind    ::StatusKind
-    message ::String
-    count   ::Union{Int, Nothing}
+    kind::StatusKind
+    message::String
+    count::Union{Int, Nothing}
 end
 
-StatusRecord()                          = StatusRecord(PATH_CLEAR, "", nothing)
-StatusRecord(k::StatusKind)             = StatusRecord(k, "", nothing)
-StatusRecord(k::StatusKind, m::String)  = StatusRecord(k, m, nothing)
+StatusRecord() = StatusRecord(PATH_CLEAR, "", nothing)
+StatusRecord(k::StatusKind) = StatusRecord(k, "", nothing)
+StatusRecord(k::StatusKind, m::String) = StatusRecord(k, m, nothing)
 
-function status_blocks_writer(s::StatusRecord) :: Bool
-    s.kind in (PATH_READ_ONLY, PATH_READ_ONLY_TEMPORARY, PATH_FORBIDDEN, PATH_FORBIDDEN_TEMPORARY)
+function status_blocks_writer(s::StatusRecord)::Bool
+    s.kind in
+    (PATH_READ_ONLY, PATH_READ_ONLY_TEMPORARY, PATH_FORBIDDEN, PATH_FORBIDDEN_TEMPORARY)
 end
 
-function status_blocks_reader(s::StatusRecord) :: Bool
-    s.kind in (PATH_READ_ONLY, PATH_READ_ONLY_TEMPORARY, PATH_FORBIDDEN, PATH_FORBIDDEN_TEMPORARY)
+function status_blocks_reader(s::StatusRecord)::Bool
+    s.kind in
+    (PATH_READ_ONLY, PATH_READ_ONLY_TEMPORARY, PATH_FORBIDDEN, PATH_FORBIDDEN_TEMPORARY)
 end
 
 # Mirrors upstream #[serde(rename_all = "camelCase")] on StatusRecord variants
 const _STATUS_KIND_JSON = Dict(
-    PATH_CLEAR               => "pathClear",
-    PATH_READ_ONLY           => "pathReadOnly",
+    PATH_CLEAR => "pathClear",
+    PATH_READ_ONLY => "pathReadOnly",
     PATH_READ_ONLY_TEMPORARY => "pathReadOnlyTemporary",
-    PATH_FORBIDDEN           => "pathForbidden",
+    PATH_FORBIDDEN => "pathForbidden",
     PATH_FORBIDDEN_TEMPORARY => "pathForbiddenTemporary",
-    SERVER_SHUTDOWN          => "serverShutdown",
-    STATUS_COUNT_RESULT      => "countResult",
-    STATUS_FETCH_ERROR       => "fetchError",
-    STATUS_PARSE_ERROR       => "parseError",
-    STATUS_EXEC_ERROR        => "execError",
+    SERVER_SHUTDOWN => "serverShutdown",
+    STATUS_COUNT_RESULT => "countResult",
+    STATUS_FETCH_ERROR => "fetchError",
+    STATUS_PARSE_ERROR => "parseError",
+    STATUS_EXEC_ERROR => "execError"
 )
 
-function status_to_json(s::StatusRecord) :: String
-    d = Dict{String,Any}("status" => get(_STATUS_KIND_JSON, s.kind, string(s.kind)),
-                          "message" => s.message)
+function status_to_json(s::StatusRecord)::String
+    d = Dict{String, Any}("status" => get(_STATUS_KIND_JSON, s.kind, string(s.kind)),
+        "message" => s.message)
     s.count !== nothing && (d["count"] = s.count)
     JSON3.write(d)
 end
@@ -80,18 +82,18 @@ end
 # =====================================================================
 
 mutable struct ReadPermission
-    path       ::Vector{UInt8}
-    status_map ::Any   # StatusMap (forward ref)
-    released   ::Bool
+    path::Vector{UInt8}
+    status_map::Any   # StatusMap (forward ref)
+    released::Bool
 end
 
 mutable struct WritePermission
-    path       ::Vector{UInt8}
-    status_map ::Any   # StatusMap (forward ref)
-    released   ::Bool
+    path::Vector{UInt8}
+    status_map::Any   # StatusMap (forward ref)
+    released::Bool
 end
 
-rp_path(p::ReadPermission)  = p.path
+rp_path(p::ReadPermission) = p.path
 wp_path(p::WritePermission) = p.path
 
 # =====================================================================
@@ -100,23 +102,23 @@ wp_path(p::WritePermission) = p.path
 # =====================================================================
 
 mutable struct StatusMap
-    user_status ::Dict{Vector{UInt8}, StatusRecord}
-    readers     ::Dict{Vector{UInt8}, Int}    # refcounts
-    writers     ::Set{Vector{UInt8}}
-    streams     ::Dict{Vector{UInt8}, Vector{Channel{StatusRecord}}}
-    lock        ::ReentrantLock
-    shutdown    ::Ref{Bool}
+    user_status::Dict{Vector{UInt8}, StatusRecord}
+    readers::Dict{Vector{UInt8}, Int}    # refcounts
+    writers::Set{Vector{UInt8}}
+    streams::Dict{Vector{UInt8}, Vector{Channel{StatusRecord}}}
+    lock::ReentrantLock
+    shutdown::Ref{Bool}
 end
 
 StatusMap() = StatusMap(Dict(), Dict(), Set(), Dict(), ReentrantLock(), Ref(false))
 
-function sm_get_user_status(sm::StatusMap, path::Vector{UInt8}) :: StatusRecord
+function sm_get_user_status(sm::StatusMap, path::Vector{UInt8})::StatusRecord
     lock(sm.lock) do
         get(sm.user_status, path, StatusRecord())
     end
 end
 
-function sm_get_status(sm::StatusMap, path::Vector{UInt8}) :: StatusRecord
+function sm_get_status(sm::StatusMap, path::Vector{UInt8})::StatusRecord
     lock(sm.lock) do
         # Check active reader/writer locks first (PathReadOnlyTemporary / PathForbiddenTemporary)
         if path in sm.writers
@@ -177,7 +179,7 @@ end
 # re-acquire to GC them.  Safe for put! to block — sm.lock is free for
 # other tasks while we wait on the channel.
 function _sm_notify_streams_outside_lock!(sm::StatusMap, path::Vector{UInt8}, snapshot)
-    snapshot === nothing && return
+    snapshot === nothing && return nothing
     chs_copy, status = snapshot
     dead = Set{Channel{StatusRecord}}()
     for ch in chs_copy
@@ -187,7 +189,7 @@ function _sm_notify_streams_outside_lock!(sm::StatusMap, path::Vector{UInt8}, sn
             push!(dead, ch)
         end
     end
-    isempty(dead) && return
+    isempty(dead) && return nothing
     lock(sm.lock) do
         live = get(sm.streams, path, nothing)
         if live !== nothing
@@ -197,7 +199,9 @@ function _sm_notify_streams_outside_lock!(sm::StatusMap, path::Vector{UInt8}, sn
     end
 end
 
-function sm_try_set_user_status!(sm::StatusMap, path::Vector{UInt8}, status::StatusRecord) :: Bool
+function sm_try_set_user_status!(
+    sm::StatusMap, path::Vector{UInt8}, status::StatusRecord
+)::Bool
     ok_and_snap = lock(sm.lock) do
         existing = get(sm.user_status, path, StatusRecord())
         # Cannot overwrite blocking statuses
@@ -233,17 +237,20 @@ end
 end
 
 # A reader conflicts only with an overlapping WRITER (readers coexist with readers).
-@inline _reader_conflict(sm::StatusMap, path) = any(w -> _paths_overlap(w, path), sm.writers)
+@inline _reader_conflict(sm::StatusMap, path) =
+    any(w -> _paths_overlap(w, path), sm.writers)
 # A writer conflicts with any overlapping reader OR writer.
 @inline _writer_conflict(sm::StatusMap, path) =
     any(w -> _paths_overlap(w, path), sm.writers) ||
     any(r -> _paths_overlap(r, path), keys(sm.readers))
 
-function sm_get_read_permission(sm::StatusMap, path::Vector{UInt8}) :: Union{ReadPermission, Nothing}
+function sm_get_read_permission(
+    sm::StatusMap, path::Vector{UInt8}
+)::Union{ReadPermission, Nothing}
     perm_and_snap = lock(sm.lock) do
         user_st = get(sm.user_status, path, StatusRecord())
         status_blocks_reader(user_st) && return (nothing, nothing)
-        _reader_conflict(sm, path)      && return (nothing, nothing)
+        _reader_conflict(sm, path) && return (nothing, nothing)
         sm.readers[path] = get(sm.readers, path, 0) + 1
         (ReadPermission(path, sm, false), _sm_snapshot_streams(sm, path))
     end
@@ -253,7 +260,7 @@ function sm_get_read_permission(sm::StatusMap, path::Vector{UInt8}) :: Union{Rea
 end
 
 function sm_release_read!(sm::StatusMap, perm::ReadPermission)
-    perm.released && return
+    perm.released && return nothing
     perm.released = true
     snap = lock(sm.lock) do
         n = get(sm.readers, perm.path, 0)
@@ -263,11 +270,13 @@ function sm_release_read!(sm::StatusMap, perm::ReadPermission)
     _sm_notify_streams_outside_lock!(sm, perm.path, snap)
 end
 
-function sm_get_write_permission(sm::StatusMap, path::Vector{UInt8}) :: Union{WritePermission, Nothing}
+function sm_get_write_permission(
+    sm::StatusMap, path::Vector{UInt8}
+)::Union{WritePermission, Nothing}
     perm_and_snap = lock(sm.lock) do
         user_st = get(sm.user_status, path, StatusRecord())
-        status_blocks_writer(user_st)                          && return (nothing, nothing)
-        _writer_conflict(sm, path)                             && return (nothing, nothing)
+        status_blocks_writer(user_st) && return (nothing, nothing)
+        _writer_conflict(sm, path) && return (nothing, nothing)
         delete!(sm.user_status, path)   # clear user status on write acquisition
         push!(sm.writers, path)
         (WritePermission(path, sm, false), _sm_snapshot_streams(sm, path))
@@ -278,7 +287,7 @@ function sm_get_write_permission(sm::StatusMap, path::Vector{UInt8}) :: Union{Wr
 end
 
 function sm_release_write!(sm::StatusMap, perm::WritePermission)
-    perm.released && return
+    perm.released && return nothing
     perm.released = true
     snap = lock(sm.lock) do
         delete!(sm.writers, perm.path)
@@ -310,7 +319,11 @@ function sm_shutdown!(sm::StatusMap)
     lock(sm.lock) do
         for (path, chs) in sm.streams
             for ch in chs
-                try; put!(ch, StatusRecord(SERVER_SHUTDOWN)); catch; end
+                try
+                    ; put!(ch, StatusRecord(SERVER_SHUTDOWN));
+                catch
+                    ;
+                end
                 close(ch)
             end
         end
@@ -326,10 +339,10 @@ end
 const SETTLE_TIME_S = 0.005   # 5ms settle time from upstream
 
 mutable struct ServerSpace
-    space          ::Space
-    status_map     ::StatusMap
-    resource_store ::ResourceStore
-    _next_cmd_id   ::Ref{UInt64}   # monotonic command-ID counter
+    space::Space
+    status_map::StatusMap
+    resource_store::ResourceStore
+    _next_cmd_id::Ref{UInt64}   # monotonic command-ID counter
 end
 
 function ServerSpace(resource_dir::AbstractString=".")
@@ -338,22 +351,22 @@ function ServerSpace(resource_dir::AbstractString=".")
 end
 
 # Thread-safe command-ID allocation
-function _ss_next_cmd_id!(ss::ServerSpace) :: UInt64
+function _ss_next_cmd_id!(ss::ServerSpace)::UInt64
     id = ss._next_cmd_id[]
     ss._next_cmd_id[] = id + one(UInt64)
     id
 end
 
-function ss_get_status(ss::ServerSpace, path::Vector{UInt8}) :: StatusRecord
+function ss_get_status(ss::ServerSpace, path::Vector{UInt8})::StatusRecord
     sm_get_status(ss.status_map, path)
 end
 
-function ss_set_status!(ss::ServerSpace, path::Vector{UInt8}, status::StatusRecord) :: Bool
+function ss_set_status!(ss::ServerSpace, path::Vector{UInt8}, status::StatusRecord)::Bool
     sm_try_set_user_status!(ss.status_map, path, status)
 end
 
 # Acquire reader — retry once after settle time if conflicted
-function ss_new_reader(ss::ServerSpace, path::Vector{UInt8}) :: Union{ReadPermission, Nothing}
+function ss_new_reader(ss::ServerSpace, path::Vector{UInt8})::Union{ReadPermission, Nothing}
     p = sm_get_read_permission(ss.status_map, path)
     if p === nothing
         sleep(SETTLE_TIME_S)
@@ -363,7 +376,9 @@ function ss_new_reader(ss::ServerSpace, path::Vector{UInt8}) :: Union{ReadPermis
 end
 
 # Acquire writer — retry once after settle time if conflicted
-function ss_new_writer(ss::ServerSpace, path::Vector{UInt8}) :: Union{WritePermission, Nothing}
+function ss_new_writer(
+    ss::ServerSpace, path::Vector{UInt8}
+)::Union{WritePermission, Nothing}
     p = sm_get_write_permission(ss.status_map, path)
     if p === nothing
         sleep(SETTLE_TIME_S)
@@ -372,8 +387,10 @@ function ss_new_writer(ss::ServerSpace, path::Vector{UInt8}) :: Union{WritePermi
     p
 end
 
-ss_release_reader!(ss::ServerSpace, perm::ReadPermission)  = sm_release_read!(ss.status_map, perm)
-ss_release_writer!(ss::ServerSpace, perm::WritePermission) = sm_release_write!(ss.status_map, perm)
+ss_release_reader!(ss::ServerSpace, perm::ReadPermission) =
+    sm_release_read!(ss.status_map, perm)
+ss_release_writer!(ss::ServerSpace, perm::WritePermission) =
+    sm_release_write!(ss.status_map, perm)
 
 """
     ss_new_multiple(ss, f)
@@ -394,7 +411,9 @@ end
 Retry writer acquisition up to `attempts` times with 500µs between tries.
 Mirrors `Space::new_writer_retry` in space_temporary.rs.
 """
-function ss_new_writer_retry(ss::ServerSpace, path::Vector{UInt8}, attempts::Int=5) :: Union{WritePermission, Nothing}
+function ss_new_writer_retry(
+    ss::ServerSpace, path::Vector{UInt8}, attempts::Int=5
+)::Union{WritePermission, Nothing}
     for _ in 1:max(1, attempts)
         p = sm_get_write_permission(ss.status_map, path)
         p !== nothing && return p

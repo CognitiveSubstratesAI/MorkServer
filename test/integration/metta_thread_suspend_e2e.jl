@@ -7,7 +7,7 @@ using MORK, HTTP, JSON3, Test
 const PORT = 9909
 const BASE = "http://127.0.0.1:$PORT"
 
-ss  = ServerSpace()
+ss = ServerSpace()
 srv = serve_background!(ss, PORT)
 sleep(2)
 
@@ -17,7 +17,9 @@ function wait_eq(url, expected, timeout=10.0)
         try
             j = JSON3.read(HTTP.get(url; readtimeout=2).body)
             String(j[:status]) == expected && return true
-        catch; end
+        catch
+            ;
+        end
         sleep(0.1)
     end
     false
@@ -31,7 +33,8 @@ end
         "(foo 1)\n(foo 2)\n") |> r -> @test r.status == 200
 
     # Exec rule: match (foo X) → produce (bar X)
-    HTTP.post("$BASE/upload/(exec%20%24l_p%20%24patterns%20%24templates)/(exec%20%24l_p%20%24patterns%20%24templates)",
+    HTTP.post(
+        "$BASE/upload/(exec%20%24l_p%20%24patterns%20%24templates)/(exec%20%24l_p%20%24patterns%20%24templates)",
         [], "(exec (susp_test 0) (, (susp_test (foo \$x))) (, (susp_test (bar \$x))))\n") |> r -> @test r.status == 200
 
     # ── Verify exec atom is in space before suspend ───────────────────────

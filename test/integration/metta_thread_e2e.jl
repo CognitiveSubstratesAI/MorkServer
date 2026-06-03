@@ -5,7 +5,7 @@ using MORK, HTTP, JSON3, Test
 const PORT = 9905
 const BASE = "http://127.0.0.1:$PORT"
 
-ss  = ServerSpace()
+ss = ServerSpace()
 srv = serve_background!(ss, PORT)
 sleep(2)
 
@@ -15,7 +15,9 @@ function wait_status(url, expected, timeout=10.0)
         try
             j = JSON3.read(HTTP.get(url; readtimeout=2).body)
             String(j[:status]) == expected && return true
-        catch; end
+        catch
+            ;
+        end
         sleep(0.1)
     end
     false
@@ -53,10 +55,13 @@ end
     exp = String(HTTP.get("$BASE/export/(adams_hw_data%20%24v)/(data%20%24v)").body)
     lines = sort(filter(!isempty, split(exp, "\n")))
     println("Export results:")
-    for l in lines; println("  $l"); end
+    for l in lines
+        ;
+        println("  $l");
+    end
 
     expected = sort(["(data T)", "(data ran_exec)", "(data (foo 1))",
-                     "(data (foo 2))", "(data (bar 1))", "(data (bar 2))"])
+        "(data (foo 2))", "(data (bar 1))", "(data (bar 2))"])
     @test lines == expected
 end
 

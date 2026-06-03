@@ -31,7 +31,9 @@ function wait_lock_free(path="$BASE/status/-", timeout_s=5.0)
             j = JSON3.read(HTTP.get(path; readtimeout=2).body)
             s = String(j[:status])
             s ∉ ("locked", "counting") && return s
-        catch; end
+        catch
+            ;
+        end
         sleep(0.1)
     end
     "timeout"
@@ -39,12 +41,16 @@ end
 
 # ── Server lifecycle ──────────────────────────────────────────────────────
 
-ss  = ServerSpace()
+ss = ServerSpace()
 srv = serve_background!(ss, E2E_PORT)
 # Wait for server
 deadline = time() + 15.0
 while time() < deadline
-    try; HTTP.get("$BASE/status/-"; readtimeout=1, connect_timeout=1); break; catch; sleep(0.2); end
+    try
+        ; HTTP.get("$BASE/status/-"; readtimeout=1, connect_timeout=1); break;
+    catch
+        ; sleep(0.2);
+    end
 end
 
 # ── Tests ─────────────────────────────────────────────────────────────────
@@ -115,7 +121,9 @@ end
 
     @testset "export with pattern filter" begin
         # Only atoms matching (person-likes $ $)
-        status, body = get("/export/(person-likes%20%24x%20%24y)/\$(person-likes%20\$x%20\$y)")
+        status, body = get(
+            "/export/(person-likes%20%24x%20%24y)/\$(person-likes%20\$x%20\$y)"
+        )
         @test status == 200
     end
 

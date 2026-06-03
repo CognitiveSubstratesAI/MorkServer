@@ -11,8 +11,8 @@ Julia translation notes:
   - Rust `ResourceHandle::drop` cleanup → explicit finalize! + close
 """
 
-const RS_HASH_SEED         = Int64(1234)
-const RS_IN_PROGRESS_TS    = "0000000000000000"
+const RS_HASH_SEED = Int64(1234)
+const RS_IN_PROGRESS_TS = "0000000000000000"
 
 # =====================================================================
 # ResourceHandle — mirrors ResourceHandle in resource_store.rs
@@ -26,12 +26,12 @@ Holds the filesystem path; cleanup on finalize or drop.
 Mirrors `ResourceHandle` in resource_store.rs.
 """
 mutable struct ResourceHandle
-    cmd_id     ::UInt64
-    identifier ::String
-    path       ::Union{String, Nothing}
+    cmd_id::UInt64
+    identifier::String
+    path::Union{String, Nothing}
 end
 
-function rh_path(h::ResourceHandle) :: String
+function rh_path(h::ResourceHandle)::String
     h.path !== nothing || error("ResourceHandle: resource no longer available")
     h.path
 end
@@ -45,9 +45,10 @@ Mirrors `ResourceHandle::finalize` in resource_store.rs.
 function rh_finalize!(h::ResourceHandle, new_timestamp::UInt64)
     old_path = rh_path(h)
     hash_val = hash(h.identifier) % typemax(UInt64)
-    new_name = string(new_timestamp, base=16, pad=16) * "-" *
-               string(h.cmd_id, base=16, pad=16) * "-" *
-               string(hash_val, base=16, pad=16)
+    new_name =
+        string(new_timestamp; base=16, pad=16) * "-" *
+        string(h.cmd_id; base=16, pad=16) * "-" *
+        string(hash_val; base=16, pad=16)
     dir_path = dirname(old_path)
     new_path = joinpath(dir_path, new_name)
     mv(old_path, new_path)
@@ -80,7 +81,7 @@ Manages versioned cached resources on disk for the import command.
 Mirrors `ResourceStore` in resource_store.rs.
 """
 struct ResourceStore
-    dir_path ::String
+    dir_path::String
 end
 
 """
@@ -104,11 +105,14 @@ end
 Create a new in-progress resource file. Errors if already exists.
 Mirrors `ResourceStore::new_resource`.
 """
-function rs_new_resource(store::ResourceStore, identifier::String, cmd_id::UInt64) :: ResourceHandle
-    hash_val  = hash(identifier) % typemax(UInt64)
-    file_name = RS_IN_PROGRESS_TS * "-" *
-                string(cmd_id, base=16, pad=16) * "-" *
-                string(hash_val, base=16, pad=16)
+function rs_new_resource(
+    store::ResourceStore, identifier::String, cmd_id::UInt64
+)::ResourceHandle
+    hash_val = hash(identifier) % typemax(UInt64)
+    file_name =
+        RS_IN_PROGRESS_TS * "-" *
+        string(cmd_id; base=16, pad=16) * "-" *
+        string(hash_val; base=16, pad=16)
     path = joinpath(store.dir_path, file_name)
     isfile(path) && error("Resource already in-progress: $identifier")
     touch(path)

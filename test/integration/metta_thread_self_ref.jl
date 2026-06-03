@@ -9,7 +9,7 @@ using MORK, HTTP, JSON3, Test
 const PORT = 9907
 const BASE = "http://127.0.0.1:$PORT"
 
-ss  = ServerSpace()
+ss = ServerSpace()
 srv = serve_background!(ss, PORT)
 sleep(2)
 
@@ -19,7 +19,9 @@ function wait_status(url, expected, timeout=10.0)
         try
             j = JSON3.read(HTTP.get(url; readtimeout=2).body)
             String(j[:status]) == expected && return true
-        catch; end
+        catch
+            ;
+        end
         sleep(0.1)
     end
     false

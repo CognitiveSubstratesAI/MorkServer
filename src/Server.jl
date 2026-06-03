@@ -20,11 +20,11 @@
 
 using HTTP
 
-const SERVER_ADDR_ENV    = "MORK_SERVER_ADDR"
-const SERVER_PORT_ENV    = "MORK_SERVER_PORT"
-const SERVER_DIR_ENV     = "MORK_SERVER_DIR"
-const DEFAULT_ADDR       = "127.0.0.1"
-const DEFAULT_PORT       = "8000"
+const SERVER_ADDR_ENV = "MORK_SERVER_ADDR"
+const SERVER_PORT_ENV = "MORK_SERVER_PORT"
+const SERVER_DIR_ENV = "MORK_SERVER_DIR"
+const DEFAULT_ADDR = "127.0.0.1"
+const DEFAULT_PORT = "8000"
 const DEFAULT_SERVER_DIR = "/tmp/mork_server_files"
 
 # =====================================================================
@@ -32,16 +32,16 @@ const DEFAULT_SERVER_DIR = "/tmp/mork_server_files"
 # =====================================================================
 
 mutable struct MorkServer
-    ss          ::ServerSpace
-    addr        ::String
-    port        ::Int
-    stop_flag   ::Ref{Bool}
-    request_counter ::Ref{Int}
+    ss::ServerSpace
+    addr::String
+    port::Int
+    stop_flag::Ref{Bool}
+    request_counter::Ref{Int}
 end
 
 function MorkServer(; addr::String=get(ENV, SERVER_ADDR_ENV, DEFAULT_ADDR),
-                      port::Int=parse(Int, get(ENV, SERVER_PORT_ENV, DEFAULT_PORT)),
-                      resource_dir::String=get(ENV, SERVER_DIR_ENV, DEFAULT_SERVER_DIR))
+    port::Int=parse(Int, get(ENV, SERVER_PORT_ENV, DEFAULT_PORT)),
+    resource_dir::String=get(ENV, SERVER_DIR_ENV, DEFAULT_SERVER_DIR))
     MorkServer(ServerSpace(resource_dir), addr, port, Ref(false), Ref(0))
 end
 
@@ -49,7 +49,7 @@ end
 # Request routing — mirrors Service::call in main.rs
 # =====================================================================
 
-function _split_command(path::String) :: Tuple{String, Vector{String}}
+function _split_command(path::String)::Tuple{String, Vector{String}}
     # Strip leading slash, split on /, URL-decode each segment
     parts = filter!(!isempty, split(lstrip(path, '/'), '/'))
     isempty(parts) && return ("", String[])
@@ -57,8 +57,8 @@ function _split_command(path::String) :: Tuple{String, Vector{String}}
     decoded[1], decoded[2:end]
 end
 
-function _parse_query(uri::HTTP.URI) :: Dict{String,String}
-    params = Dict{String,String}()
+function _parse_query(uri::HTTP.URI)::Dict{String, String}
+    params = Dict{String, String}()
     isempty(uri.query) && return params
     for pair in split(uri.query, '&')
         kv = split(pair, '='; limit=2)
@@ -67,29 +67,35 @@ function _parse_query(uri::HTTP.URI) :: Dict{String,String}
     params
 end
 
-function _handle_request(server::MorkServer, req::HTTP.Request) :: HTTP.Response
+function _handle_request(server::MorkServer, req::HTTP.Request)::HTTP.Response
     server.request_counter[] += 1
     cmd_id = server.request_counter[]
 
-    uri          = HTTP.URI(req.target)
+    uri = HTTP.URI(req.target)
     cmd_name, args = _split_command(String(uri.path))
-    body         = Vector{UInt8}(req.body)
+    body = Vector{UInt8}(req.body)
     query_params = _parse_query(uri)
 
     # Favicon — return minimal transparent ICO so browsers stop retrying with 404s
     if cmd_name == "favicon.ico"
-        ico = UInt8[0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x01,0x00,0x00,0x01,0x00,
-                    0x18,0x00,0x0A,0x00,0x00,0x00,0x16,0x00,0x00,0x00]
+        ico = UInt8[0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00,
+            0x18, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]
         return HTTP.Response(200, ["Content-Type" => "image/x-icon"], ico)
     end
 
     # Root path — return API index with clickable links
     if isempty(cmd_name)
         # Use the Host header so links work correctly from any machine (Windows, etc.)
-        host_hdr  = HTTP.header(req, "Host", "$(server.addr == "0.0.0.0" ? "localhost" : server.addr):$(server.port)")
-        base_url  = "http://$(host_hdr)"
-        commands  = sort(collect(keys(COMMAND_TABLE)))
-        cmd_links = join(["<li><a href=\"/$c\"><code>/$c</code></a></li>" for c in commands])
+        host_hdr = HTTP.header(
+            req,
+            "Host",
+            "$(server.addr == "0.0.0.0" ? "localhost" : server.addr):$(server.port)"
+        )
+        base_url = "http://$(host_hdr)"
+        commands = sort(collect(keys(COMMAND_TABLE)))
+        cmd_links = join([
+            "<li><a href=\"/$c\"><code>/$c</code></a></li>" for c in commands
+        ])
         html = """<!DOCTYPE html>
 <html><head><title>MORK Server</title>
 <style>
@@ -122,7 +128,11 @@ function _handle_request(server::MorkServer, req::HTTP.Request) :: HTTP.Response
 
     entry = get(COMMAND_TABLE, cmd_name, nothing)
     if entry === nothing
-        return HTTP.Response(404, "Unknown command: $cmd_name\nAvailable: " * join(sort(collect(keys(COMMAND_TABLE))), ", "))
+        return HTTP.Response(
+            404,
+            "Unknown command: $cmd_name\nAvailable: " *
+            join(sort(collect(keys(COMMAND_TABLE))), ", ")
+        )
     end
 
     _http_method, handler_fn = entry
@@ -136,7 +146,7 @@ function _handle_request(server::MorkServer, req::HTTP.Request) :: HTTP.Response
     _work_result_to_response(result)
 end
 
-function _work_result_to_response(result::WorkResult) :: HTTP.Response
+function _work_result_to_response(result::WorkResult)::HTTP.Response
     kind = result[1]
     if kind === :ok
         HTTP.Response(200, result[2])
@@ -146,8 +156,8 @@ function _work_result_to_response(result::WorkResult) :: HTTP.Response
         # SSE stream: drain channel and format as Server-Sent Events.
         # Mirrors WorkResult::Streamed in the upstream — each StatusRecord
         # is emitted as "data: <json>\n\n" per the SSE spec.
-        ch       = result[2]
-        buf      = IOBuffer()
+        ch = result[2]
+        buf = IOBuffer()
         deadline = time() + 10.0   # collect for up to 10 s then flush
         while time() < deadline && (isopen(ch) || isready(ch))
             isready(ch) || sleep(0.05)
@@ -158,8 +168,8 @@ function _work_result_to_response(result::WorkResult) :: HTTP.Response
         close(ch)
         HTTP.Response(200,
             ["Content-Type" => "text/event-stream",
-             "Cache-Control" => "no-cache",
-             "Connection"    => "keep-alive"],
+                "Cache-Control" => "no-cache",
+                "Connection" => "keep-alive"],
             take!(buf))
     else
         HTTP.Response(500, "unknown work result kind")
@@ -186,8 +196,10 @@ function serve!(server::MorkServer; verbose::Bool=true)
 
     server.stop_flag[] = false
 
-    http_server = HTTP.Sockets.listen(HTTP.Sockets.InetAddr(
-        parse(HTTP.Sockets.IPAddr, server.addr), server.port))
+    http_server = HTTP.Sockets.listen(
+        HTTP.Sockets.InetAddr(
+            parse(HTTP.Sockets.IPAddr, server.addr), server.port)
+    )
 
     @async HTTP.serve!(http_server) do req
         _handle_request(server, req)
@@ -208,7 +220,7 @@ end
 
 Start the MORK HTTP server in a background task.  Returns the task.
 """
-function serve_background!(server::MorkServer) :: Task
+function serve_background!(server::MorkServer)::Task
     @async serve!(server; verbose=true)
 end
 
@@ -217,7 +229,7 @@ end
 
 Convenience: wrap `ss` in a `MorkServer` and start it in a background task.
 """
-function serve_background!(ss::ServerSpace, port::Int; addr::String="127.0.0.1") :: Task
+function serve_background!(ss::ServerSpace, port::Int; addr::String="127.0.0.1")::Task
     srv = MorkServer(ss, addr, port, Ref(false), Ref(0))
     serve_background!(srv)
 end

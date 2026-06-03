@@ -23,7 +23,7 @@ using MorkServer
         "explore_e2e",
         "import_e2e",
         "metta_thread_e2e",
-        "metta_thread_suspend_e2e",
+        "metta_thread_suspend_e2e"
     ]
         @testset "$f" begin
             include(joinpath(@__DIR__, "integration", "$f.jl"))

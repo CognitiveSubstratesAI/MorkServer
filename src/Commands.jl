@@ -32,9 +32,9 @@ using JSON3
     FMT_PATHS
 end
 
-function dataformat_from_str(s::AbstractString) :: Union{DataFormat, Nothing}
+function dataformat_from_str(s::AbstractString)::Union{DataFormat, Nothing}
     d = Dict("metta"=>FMT_METTA, "csv"=>FMT_CSV, "json"=>FMT_JSON,
-             "jsonl"=>FMT_JSONL, "raw"=>FMT_RAW, "paths"=>FMT_PATHS)
+        "jsonl"=>FMT_JSONL, "raw"=>FMT_RAW, "paths"=>FMT_PATHS)
     get(d, lowercase(s), nothing)
 end
 
@@ -48,10 +48,10 @@ end
 
 const WorkResult = Tuple   # (:ok, bytes) | (:error, code, msg) | (:stream, ch)
 
-work_ok(s::AbstractString)     = (:ok, Vector{UInt8}(s))
-work_ok(b::Vector{UInt8})      = (:ok, b)
+work_ok(s::AbstractString) = (:ok, Vector{UInt8}(s))
+work_ok(b::Vector{UInt8}) = (:ok, b)
 work_error(code::Int, msg::String) = (:error, code, msg)
-work_stream(ch::Channel)       = (:stream, ch)
+work_stream(ch::Channel) = (:stream, ch)
 
 # =====================================================================
 # Helpers
@@ -74,7 +74,7 @@ end
 function _parse_transform_body(ss::ServerSpace, src::String)
     # Parse the outer (transform ...) expression
     outer = sexpr_to_expr(src)
-    args  = ExprEnv[]
+    args = ExprEnv[]
     ee_args!(ExprEnv(UInt8(0), UInt8(0), UInt32(0), outer), args)
     length(args) >= 3 || error("transform: expected (transform (, pats...) (, tpls...))")
 
@@ -88,10 +88,13 @@ function _parse_transform_body(ss::ServerSpace, src::String)
         ee_args!(ee, sub_args)
         length(sub_args) >= 2 || error("expected comma list")
         # sub_args[1] = "," functor, rest are the elements
-        [MORK.Expr(Vector{UInt8}(expr_span(a.base, Int(a.offset)+1))) for a in sub_args[2:end]]
+        [
+            MORK.Expr(Vector{UInt8}(expr_span(a.base, Int(a.offset)+1))) for
+            a in sub_args[2:end]
+        ]
     end
 
-    patterns  = extract_comma_list(pat_list)
+    patterns = extract_comma_list(pat_list)
     templates = extract_comma_list(tpl_list)
     (patterns, templates)
 end
@@ -101,7 +104,9 @@ end
 # GET /busywait/<millis>
 # Ties up a worker for N ms. Returns "ACK. Waiting" immediately.
 # =====================================================================
-function cmd_busywait(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_busywait(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     length(args) < 1 && return work_error(400, "busywait: expected millis argument")
     millis = tryparse(Int, args[1])
     millis === nothing && return work_error(400, "busywait: expected integer milliseconds")
@@ -114,11 +119,13 @@ end
 # GET /clear/<expr_sexpr>
 # Removes all values at the expression's prefix. Synchronous.
 # =====================================================================
-function cmd_clear(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_clear(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     isempty(args) && return work_error(400, "clear: expected expr argument")
     expr_str = join(args, "/")
     try
-        expr   = sexpr_to_expr(expr_str)
+        expr = sexpr_to_expr(expr_str)
         prefix = _derive_prefix(expr)
         writer = ss_new_writer(ss, prefix)
         writer === nothing && return work_error(503, "clear: path is locked")
@@ -148,11 +155,13 @@ end
 # GET /copy/<src_expr>/<dst_expr>
 # Grafts src subtrie into dst. Synchronous.
 # =====================================================================
-function cmd_copy(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_copy(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     length(args) < 2 && return work_error(400, "copy: expected src_expr and dst_expr")
     try
-        src_expr   = sexpr_to_expr(args[1])
-        dst_expr   = sexpr_to_expr(args[2])
+        src_expr = sexpr_to_expr(args[1])
+        dst_expr = sexpr_to_expr(args[2])
         src_prefix = _derive_prefix(src_expr)
         dst_prefix = _derive_prefix(dst_expr)
 
@@ -160,7 +169,8 @@ function cmd_copy(ss::ServerSpace, args::Vector{String}, props::Dict{String,Stri
         reader === nothing && return work_error(503, "copy: source path is locked")
         writer = ss_new_writer(ss, dst_prefix)
         if writer === nothing
-            ss_release_reader!(ss, reader); return work_error(503, "copy: dest path is locked")
+            ss_release_reader!(ss, reader);
+            return work_error(503, "copy: dest path is locked")
         end
         try
             # wz.graft(&rz): O(1) by-REFERENCE graft of the src subtrie into dst —
@@ -190,18 +200,20 @@ end
 # GET /count/<expr_sexpr>
 # Returns "ACK. Starting Count" immediately; result stored in status_map.
 # =====================================================================
-function cmd_count(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_count(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     isempty(args) && return work_error(400, "count: expected expr argument")
     expr_str = join(args, "/")
     try
-        expr   = sexpr_to_expr(expr_str)
+        expr = sexpr_to_expr(expr_str)
         prefix = _derive_prefix(expr)
         reader = ss_new_reader(ss, prefix)
         reader === nothing && return work_error(503, "count: path is locked")
         Threads.@spawn begin
             try
                 rz = read_zipper_at_path(ss.space.btm, prefix)
-                n  = zipper_val_count(rz)
+                n = zipper_val_count(rz)
                 ss_set_status!(ss, prefix, StatusRecord(STATUS_COUNT_RESULT, string(n), n))
             finally
                 ss_release_reader!(ss, reader)
@@ -219,7 +231,9 @@ end
 # Returns JSON: [{"token":[bytes],"cnt":N,"expr":"..."}]
 # focus_token is opaque bytes for iterative exploration.
 # =====================================================================
-function cmd_explore(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_explore(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     isempty(args) && return work_error(400, "explore: expected expr argument")
     expr_str = args[1]
     # Empty token = begin exploration from root. Trailing '/' in URL creates
@@ -229,7 +243,7 @@ function cmd_explore(ss::ServerSpace, args::Vector{String}, props::Dict{String,S
     focus_token = length(args) >= 2 ? Vector{UInt8}(codeunits(args[2])) : UInt8[]
 
     try
-        expr   = sexpr_to_expr(expr_str)
+        expr = sexpr_to_expr(expr_str)
         prefix = _derive_prefix(expr)
         reader = ss_new_reader(ss, prefix)
         reader === nothing && return work_error(503, "explore: path is locked")
@@ -250,8 +264,11 @@ function cmd_explore(ss::ServerSpace, args::Vector{String}, props::Dict{String,S
             first || write(io, ",\n")
             first = false
             tok_bytes = join(string.(new_tok), ", ")
-            expr_str  = expr_serialize(e.buf)
-            write(io, "{\"token\": [$tok_bytes], \"cnt\": $cnt, \"expr\": $(JSON3.write(expr_str))}")
+            expr_str = expr_serialize(e.buf)
+            write(
+                io,
+                "{\"token\": [$tok_bytes], \"cnt\": $cnt, \"expr\": $(JSON3.write(expr_str))}"
+            )
         end
         write(io, "]")
         work_ok(take!(io))
@@ -265,18 +282,21 @@ end
 # GET /export/<pattern_sexpr>/<template_sexpr>?format=metta&max_write=N
 # Returns serialized atoms matching pattern/template.
 # =====================================================================
-function cmd_export(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_export(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     length(args) < 2 && return work_error(400, "export: expected pattern and template")
-    pat_str  = args[1]
-    tpl_str  = args[2]
-    fmt_str  = get(props, "format", "metta")
-    fmt      = dataformat_from_str(fmt_str)
+    pat_str = args[1]
+    tpl_str = args[2]
+    fmt_str = get(props, "format", "metta")
+    fmt = dataformat_from_str(fmt_str)
     fmt === nothing && return work_error(400, "export: unrecognized format '$fmt_str'")
-    max_write = tryparse(Int, get(props, "max_write", "")) |> x -> x === nothing ? typemax(Int) : x
+    max_write =
+        tryparse(Int, get(props, "max_write", "")) |> x -> x === nothing ? typemax(Int) : x
 
     try
-        pat    = sexpr_to_expr(pat_str)
-        tpl    = sexpr_to_expr(tpl_str)
+        pat = sexpr_to_expr(pat_str)
+        tpl = sexpr_to_expr(tpl_str)
         prefix = _derive_prefix(pat)
         reader = ss_new_reader(ss, prefix)
         reader === nothing && return work_error(503, "export: path is locked")
@@ -287,7 +307,7 @@ function cmd_export(ss::ServerSpace, args::Vector{String}, props::Dict{String,St
                 space_dump_sexpr(ss.space, pat, tpl, io)
             elseif fmt == FMT_RAW
                 rz = read_zipper_at_path(ss.space.btm, prefix)
-                n  = 0
+                n = 0
                 while zipper_to_next_val!(rz) && n < max_write
                     println(io, repr(collect(zipper_path(rz))))
                     n += 1
@@ -311,25 +331,27 @@ end
 # GET /import/<pattern_sexpr>/<template_sexpr>?uri=<url>&format=metta
 # Returns "ACK. Starting Import" immediately; loads data in background.
 # =====================================================================
-function cmd_import(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_import(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     length(args) < 2 && return work_error(400, "import: expected pattern and template")
     pat_str = args[1]
     tpl_str = args[2]
-    uri     = get(props, "uri", "")
+    uri = get(props, "uri", "")
     isempty(uri) && return work_error(400, "import: missing uri property")
     fmt_str = get(props, "format", "metta")
-    fmt     = dataformat_from_str(fmt_str)
+    fmt = dataformat_from_str(fmt_str)
     fmt === nothing && return work_error(400, "import: unrecognized format '$fmt_str'")
 
     try
-        pat    = sexpr_to_expr(pat_str)
-        tpl    = sexpr_to_expr(tpl_str)
+        pat = sexpr_to_expr(pat_str)
+        tpl = sexpr_to_expr(tpl_str)
         # Lock at template prefix (not root) — mirrors till_constant_to_full in upstream
         tpl_prefix = _derive_prefix(tpl)
         writer = ss_new_writer(ss, tpl_prefix)
         writer === nothing && return work_error(503, "import: space is locked for writing")
 
-        cmd_id      = _ss_next_cmd_id!(ss)
+        cmd_id = _ss_next_cmd_id!(ss)
         file_handle = rs_new_resource(ss.resource_store, uri, cmd_id)
 
         Threads.@spawn begin
@@ -338,14 +360,22 @@ function cmd_import(ss::ServerSpace, args::Vector{String}, props::Dict{String,St
                 resp = try
                     HTTP.get(uri; readtimeout=30)
                 catch e
-                    ss_set_status!(ss, tpl_prefix, StatusRecord(STATUS_FETCH_ERROR, "fetch failed: $e"))
+                    ss_set_status!(
+                        ss,
+                        tpl_prefix,
+                        StatusRecord(STATUS_FETCH_ERROR, "fetch failed: $e")
+                    )
                     close(file_handle)
-                    return
+                    return nothing
                 end
                 if resp.status < 200 || resp.status >= 300
-                    ss_set_status!(ss, tpl_prefix, StatusRecord(STATUS_FETCH_ERROR, "HTTP $(resp.status)"))
+                    ss_set_status!(
+                        ss,
+                        tpl_prefix,
+                        StatusRecord(STATUS_FETCH_ERROR, "HTTP $(resp.status)")
+                    )
                     close(file_handle)
-                    return
+                    return nothing
                 end
                 data = resp.body
                 write(rh_path(file_handle), data)
@@ -365,9 +395,11 @@ function cmd_import(ss::ServerSpace, args::Vector{String}, props::Dict{String,St
                 else
                     # Unknown extension — cannot determine format → parseError
                     ss_set_status!(ss, tpl_prefix,
-                        StatusRecord(STATUS_PARSE_ERROR, "unrecognized file format for URI: $uri"))
+                        StatusRecord(
+                            STATUS_PARSE_ERROR, "unrecognized file format for URI: $uri"
+                        ))
                     close(file_handle)
-                    return
+                    return nothing
                 end
 
                 try
@@ -387,7 +419,9 @@ function cmd_import(ss::ServerSpace, args::Vector{String}, props::Dict{String,St
                 end
             catch e
                 @error "import spawn error" exception=(e, catch_backtrace())
-                ss_set_status!(ss, tpl_prefix, StatusRecord(STATUS_FETCH_ERROR, "import error: $e"))
+                ss_set_status!(
+                    ss, tpl_prefix, StatusRecord(STATUS_FETCH_ERROR, "import error: $e")
+                )
                 close(file_handle)
             finally
                 ss_release_writer!(ss, writer)
@@ -404,17 +438,19 @@ end
 # POST /upload/<pattern_sexpr>/<template_sexpr>?format=metta
 # Body = raw data to parse. Returns "ACK. Upload Successful".
 # =====================================================================
-function cmd_upload(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_upload(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     length(args) < 2 && return work_error(400, "upload: expected pattern and template")
-    pat_str  = args[1]
-    tpl_str  = args[2]
-    fmt_str  = get(props, "format", "metta")
-    fmt      = dataformat_from_str(fmt_str)
+    pat_str = args[1]
+    tpl_str = args[2]
+    fmt_str = get(props, "format", "metta")
+    fmt = dataformat_from_str(fmt_str)
     fmt === nothing && return work_error(400, "upload: unrecognized format '$fmt_str'")
 
     try
-        pat    = sexpr_to_expr(pat_str)
-        tpl    = sexpr_to_expr(tpl_str)
+        pat = sexpr_to_expr(pat_str)
+        tpl = sexpr_to_expr(tpl_str)
         writer = ss_new_writer(ss, UInt8[])
         writer === nothing && return work_error(503, "upload: space is locked for writing")
         try
@@ -442,29 +478,41 @@ end
 # Body = "(transform (, pat...) (, tpl...))"
 # Returns "ACK. TranformMultiMulti dispatched" [sic — matches upstream typo]
 # =====================================================================
-function cmd_transform(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_transform(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     isempty(body) && return work_error(400, "transform: empty POST body")
     try
-        src    = String(body)
+        src = String(body)
         # Parse (transform <pat_conjunction> <tpl_conjunction>)
         # Pass the FULL conjunction expressions to space_transform_multi_multi!,
         # exactly as space_interpret! does — do NOT split the comma list.
-        outer  = sexpr_to_expr(src)
-        eargs  = ExprEnv[]
+        outer = sexpr_to_expr(src)
+        eargs = ExprEnv[]
         ee_args!(ExprEnv(UInt8(0), UInt8(0), UInt32(0), outer), eargs)
-        length(eargs) >= 3 || return work_error(400, "transform: expected (transform (, pats...) (, tpls...))")
-        pat_expr = MORK.Expr(Vector{UInt8}(expr_span(eargs[2].base, Int(eargs[2].offset)+1)))
-        tpl_expr = MORK.Expr(Vector{UInt8}(expr_span(eargs[3].base, Int(eargs[3].offset)+1)))
+        length(eargs) >= 3 || return work_error(
+            400, "transform: expected (transform (, pats...) (, tpls...))"
+        )
+        pat_expr = MORK.Expr(
+            Vector{UInt8}(expr_span(eargs[2].base, Int(eargs[2].offset)+1))
+        )
+        tpl_expr = MORK.Expr(
+            Vector{UInt8}(expr_span(eargs[3].base, Int(eargs[3].offset)+1))
+        )
 
         writer = ss_new_writer(ss, UInt8[])
         writer === nothing && return work_error(503, "transform: space is locked")
 
         Threads.@spawn begin
             try
-                space_transform_multi_multi!(ss.space, pat_expr, UInt8(0), tpl_expr, UInt8(0), pat_expr)
+                space_transform_multi_multi!(
+                    ss.space, pat_expr, UInt8(0), tpl_expr, UInt8(0), pat_expr
+                )
             catch e
                 @error "transform spawn error" exception=(e, catch_backtrace())
-                ss_set_status!(ss, UInt8[], StatusRecord(STATUS_FETCH_ERROR, "transform error: $e"))
+                ss_set_status!(
+                    ss, UInt8[], StatusRecord(STATUS_FETCH_ERROR, "transform error: $e")
+                )
             finally
                 ss_release_writer!(ss, writer)
             end
@@ -480,9 +528,11 @@ end
 # GET /status/<expr_sexpr>
 # Returns JSON status for the expression's path. Synchronous.
 # =====================================================================
-function cmd_status(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_status(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     expr_str = isempty(args) ? "" : join(args, "/")
-    prefix   = isempty(expr_str) ? UInt8[] : try
+    prefix = isempty(expr_str) ? UInt8[] : try
         _derive_prefix(sexpr_to_expr(expr_str))
     catch
         UInt8[]
@@ -496,7 +546,9 @@ end
 # GET /stop  or  GET /stop?wait_for_idle
 # Sets stop flag. Returns ACK.
 # =====================================================================
-function cmd_stop(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_stop(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     wait = haskey(props, "wait_for_idle")
     sm_shutdown!(ss.status_map)
     if wait
@@ -512,10 +564,13 @@ end
 # Runs metta_calculus at location until exhausted. Returns ACK.
 # Result/errors stored in status_map at (exec <location>).
 # =====================================================================
-function cmd_metta_thread(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_metta_thread(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     location_str = get(props, "location", "")
     isempty(location_str) && return work_error(501,
-        "Thread ID substitution is work in progress. Use the `location` property with a constant, e.g. `?location=task_name`.")
+        "Thread ID substitution is work in progress. Use the `location` property with a constant, e.g. `?location=task_name`."
+    )
 
     try
         loc_expr = sexpr_to_expr(location_str)
@@ -527,7 +582,8 @@ function cmd_metta_thread(ss::ServerSpace, args::Vector{String}, props::Dict{Str
 
         # Acquire write lock on status location — ensures only one thread runs at that location
         writer = ss_new_writer(ss, status_loc)
-        writer === nothing && return work_error(409, "Thread is already running at that location.")
+        writer === nothing &&
+            return work_error(409, "Thread is already running at that location.")
 
         Threads.@spawn begin
             try
@@ -538,7 +594,9 @@ function cmd_metta_thread(ss::ServerSpace, args::Vector{String}, props::Dict{Str
                 ss_release_writer!(ss, writer)
             end
         end
-        work_ok("Thread `$location_str` was dispatched. Errors will be found at the status location: `$status_loc_str`")
+        work_ok(
+            "Thread `$location_str` was dispatched. Errors will be found at the status location: `$status_loc_str`"
+        )
     catch e
         work_error(400, "metta_thread: $e")
     end
@@ -549,34 +607,45 @@ end
 # GET /metta_thread_suspend/<exec_loc>/<suspend_loc>
 # Moves exec expressions from exec_loc to suspend_loc.
 # =====================================================================
-function cmd_metta_thread_suspend(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
-    length(args) < 2 && return work_error(400, "metta_thread_suspend: expected exec_location and suspend_location")
-    exec_loc_str    = args[1]   # thread location to suspend
+function cmd_metta_thread_suspend(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
+    length(args) < 2 && return work_error(
+        400, "metta_thread_suspend: expected exec_location and suspend_location"
+    )
+    exec_loc_str = args[1]   # thread location to suspend
     suspend_loc_str = args[2]   # where to store suspended execs
 
     try
         # Validate both are ground (no variables)
-        exec_loc_expr    = sexpr_to_expr(exec_loc_str)
+        exec_loc_expr = sexpr_to_expr(exec_loc_str)
         suspend_loc_expr = sexpr_to_expr(suspend_loc_str)
 
         # Derive prefixes
         # exec_prefix    = constant prefix of "(exec (exec_loc $) $ $)"
         # suspend_prefix = constant prefix of "(suspend_loc $x)"
-        exec_prefix_str    = "(exec ($exec_loc_str \$) \$ \$)"
+        exec_prefix_str = "(exec ($exec_loc_str \$) \$ \$)"
         suspend_prefix_str = "($suspend_loc_str \$x)"
-        exec_prefix    = _derive_prefix(sexpr_to_expr(exec_prefix_str))
+        exec_prefix = _derive_prefix(sexpr_to_expr(exec_prefix_str))
         suspend_prefix = _derive_prefix(sexpr_to_expr(suspend_prefix_str))
 
         # Acquire writer at suspend_prefix; clear any prior suspended state
         suspend_writer = ss_new_writer(ss, suspend_prefix)
-        suspend_writer === nothing && return work_error(409, "metta_thread_suspend: suspend location is locked")
+        suspend_writer === nothing &&
+            return work_error(409, "metta_thread_suspend: suspend location is locked")
 
         try
             # Clear prior suspended atoms at suspend_prefix
             old_paths = Vector{UInt8}[]
             rz0 = read_zipper_at_path(ss.space.btm, suspend_prefix)
-            while zipper_to_next_val!(rz0); push!(old_paths, copy(rz0.prefix_buf)); end
-            for p in old_paths; remove_val_at!(ss.space.btm, p); end
+            while zipper_to_next_val!(rz0)
+                ;
+                push!(old_paths, copy(rz0.prefix_buf));
+            end
+            for p in old_paths
+                ;
+                remove_val_at!(ss.space.btm, p);
+            end
 
             # Try to acquire writer on exec_prefix (blocks the running thread)
             exec_writer = ss_new_writer(ss, exec_prefix)
@@ -587,7 +656,10 @@ function cmd_metta_thread_suspend(ss::ServerSpace, args::Vector{String}, props::
                     sleep(0.01)
                     exec_writer = ss_new_writer(ss, exec_prefix)
                 end
-                exec_writer === nothing && return work_error(409, "metta_thread_suspend: exec location is locked (thread still running)")
+                exec_writer === nothing && return work_error(
+                    409,
+                    "metta_thread_suspend: exec location is locked (thread still running)"
+                )
             end
 
             try
@@ -602,22 +674,29 @@ function cmd_metta_thread_suspend(ss::ServerSpace, args::Vector{String}, props::
                 end
 
                 if isempty(exec_paths)
-                    return work_error(410, "metta_thread_suspend: thread already exhausted, no exec atoms to suspend")
+                    return work_error(
+                        410,
+                        "metta_thread_suspend: thread already exhausted, no exec atoms to suspend"
+                    )
                 end
 
                 # Rename exec atoms: change thread ID from exec_loc → suspend_loc.
                 # (exec (exec_loc p) pats tpls) → (exec (suspend_loc p) pats tpls)
                 # This lets metta_thread?location=suspend_loc resume them directly.
                 # rel_path = bytes AFTER exec_prefix (priority + patterns + templates bytes)
-                suspend_exec_prefix = _derive_prefix(sexpr_to_expr("(exec ($suspend_loc_str \$) \$ \$)"))
+                suspend_exec_prefix = _derive_prefix(
+                    sexpr_to_expr("(exec ($suspend_loc_str \$) \$ \$)")
+                )
                 for path in exec_paths
                     remove_val_at!(ss.space.btm, path)
-                    rel_path = path[length(exec_prefix)+1:end]
+                    rel_path = path[(length(exec_prefix) + 1):end]
                     new_path = vcat(suspend_exec_prefix, rel_path)
                     set_val_at!(ss.space.btm, new_path, UNIT_VAL)
                 end
 
-                work_ok("Ack. Thread $exec_loc_str cleared, now frozen at `($suspend_loc_str (exec ($exec_loc_str \$priorities) \$patterns \$templates))`")
+                work_ok(
+                    "Ack. Thread $exec_loc_str cleared, now frozen at `($suspend_loc_str (exec ($exec_loc_str \$priorities) \$patterns \$templates))`"
+                )
             finally
                 ss_release_writer!(ss, exec_writer)
             end
@@ -639,9 +718,11 @@ end
 
 const SSE_TIMEOUT_S = 10.0   # max time to collect stream events
 
-function cmd_status_stream(ss::ServerSpace, args::Vector{String}, props::Dict{String,String}, body::Vector{UInt8})
+function cmd_status_stream(
+    ss::ServerSpace, args::Vector{String}, props::Dict{String, String}, body::Vector{UInt8}
+)
     expr_str = isempty(args) ? "" : join(args, "/")
-    prefix   = isempty(expr_str) ? UInt8[] : try
+    prefix = isempty(expr_str) ? UInt8[] : try
         _derive_prefix(sexpr_to_expr(expr_str))
     catch
         UInt8[]
@@ -670,20 +751,20 @@ end
 # =====================================================================
 
 const COMMAND_TABLE = Dict{String, Tuple{Symbol, Function}}(
-    "busywait"              => (:GET,  cmd_busywait),
-    "clear"                 => (:GET,  cmd_clear),
-    "copy"                  => (:GET,  cmd_copy),
-    "count"                 => (:GET,  cmd_count),
-    "explore"               => (:GET,  cmd_explore),
-    "export"                => (:GET,  cmd_export),
-    "import"                => (:GET,  cmd_import),
-    "status"                => (:GET,  cmd_status),
-    "status_stream"         => (:GET,  cmd_status_stream),
-    "stop"                  => (:GET,  cmd_stop),
-    "metta_thread"          => (:GET,  cmd_metta_thread),
-    "metta_thread_suspend"  => (:GET,  cmd_metta_thread_suspend),
-    "transform"             => (:POST, cmd_transform),
-    "upload"                => (:POST, cmd_upload),
+    "busywait" => (:GET, cmd_busywait),
+    "clear" => (:GET, cmd_clear),
+    "copy" => (:GET, cmd_copy),
+    "count" => (:GET, cmd_count),
+    "explore" => (:GET, cmd_explore),
+    "export" => (:GET, cmd_export),
+    "import" => (:GET, cmd_import),
+    "status" => (:GET, cmd_status),
+    "status_stream" => (:GET, cmd_status_stream),
+    "stop" => (:GET, cmd_stop),
+    "metta_thread" => (:GET, cmd_metta_thread),
+    "metta_thread_suspend" => (:GET, cmd_metta_thread_suspend),
+    "transform" => (:POST, cmd_transform),
+    "upload" => (:POST, cmd_upload)
 )
 
 export WorkResult, DataFormat, COMMAND_TABLE

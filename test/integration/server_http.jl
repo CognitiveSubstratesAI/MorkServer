@@ -25,7 +25,9 @@ function wait_for_server(timeout_s=10.0)
         try
             r = HTTP.get("$SERVER_URL/status/-"; readtimeout=1, connect_timeout=1)
             r.status == 200 && return true
-        catch; end
+        catch
+            ;
+        end
         sleep(0.01)
     end
     error("Server did not start within $(timeout_s)s")
@@ -42,7 +44,9 @@ function wait_for_status_eq(url::String, expected::String, timeout_s=10.0)
     while time() < deadline
         try
             get_url_status(url) == expected && return true
-        catch; end
+        catch
+            ;
+        end
         sleep(0.01)
     end
     error("Timed out waiting for $url to reach status '$expected'")
@@ -54,7 +58,9 @@ function wait_for_status_ne(url::String, expected::String, timeout_s=10.0)
         try
             s = get_url_status(url)
             s != expected && return s
-        catch; end
+        catch
+            ;
+        end
         sleep(0.01)
     end
     error("Timed out waiting for $url to leave status '$expected'")
@@ -64,8 +70,8 @@ end
 # Server lifecycle
 # =====================================================================
 
-ss   = ServerSpace(mktempdir())
-srv  = serve_background!(ss, TEST_PORT)
+ss = ServerSpace(mktempdir())
+srv = serve_background!(ss, TEST_PORT)
 wait_for_server()
 
 # =====================================================================
@@ -85,7 +91,7 @@ end
 @testset "upload + export round-trip" begin
     PAYLOAD = "(female Liz)\n(male Tom)\n(male Bob)\n(parent Tom Liz)\n(parent Tom Bob)\n"
     space_expr = "(export_test \$v)"
-    file_expr  = "\$v"
+    file_expr = "\$v"
 
     upload_url = "$SERVER_URL/upload/$(HTTP.escapeuri(file_expr))/$(HTTP.escapeuri(space_expr))"
     status_url = "$SERVER_URL/status/$(HTTP.escapeuri(space_expr))"
@@ -102,8 +108,8 @@ end
     exported = String(r.body)
     println("Export:\n$exported")
 
-    sorted_got  = sort(filter(!isempty, split(exported, "\n")))
-    sorted_want = sort(filter(!isempty, split(PAYLOAD,  "\n")))
+    sorted_got = sort(filter(!isempty, split(exported, "\n")))
+    sorted_want = sort(filter(!isempty, split(PAYLOAD, "\n")))
     @test sorted_got == sorted_want
 end
 
@@ -113,14 +119,14 @@ end
 
 @testset "upload + transform + export" begin
     PAYLOAD = "(a b)\n(x (y z))\n"
-    in_expr  = "(transform_basic_test in \$v)"
+    in_expr = "(transform_basic_test in \$v)"
     out_expr = "(transform_basic_test out \$v)"
-    id_expr  = "\$v"
+    id_expr = "\$v"
 
-    upload_url    = "$SERVER_URL/upload/$(HTTP.escapeuri(id_expr))/$(HTTP.escapeuri(in_expr))"
+    upload_url = "$SERVER_URL/upload/$(HTTP.escapeuri(id_expr))/$(HTTP.escapeuri(in_expr))"
     transform_url = "$SERVER_URL/transform"
     export_in_url = "$SERVER_URL/export/$(HTTP.escapeuri(in_expr))/$(HTTP.escapeuri(id_expr))"
-    export_out_url= "$SERVER_URL/export/$(HTTP.escapeuri(out_expr))/$(HTTP.escapeuri(id_expr))"
+    export_out_url = "$SERVER_URL/export/$(HTTP.escapeuri(out_expr))/$(HTTP.escapeuri(id_expr))"
     status_in_url = "$SERVER_URL/status/$(HTTP.escapeuri(in_expr))"
 
     r = HTTP.post(upload_url; body=PAYLOAD)
@@ -132,15 +138,17 @@ end
     println("Transform: $(String(r.body))")
 
     # Both in and out should export the same identity-transformed data
-    r_in  = HTTP.get(export_in_url)
+    r_in = HTTP.get(export_in_url)
     r_out = HTTP.get(export_out_url)
-    @test r_in.status  == 200
+    @test r_in.status == 200
     @test r_out.status == 200
-    in_text  = String(r_in.body)
+    in_text = String(r_in.body)
     out_text = String(r_out.body)
-    @test sort(filter(!isempty, split(in_text,  "\n"))) ==
-          sort(filter(!isempty, split(out_text, "\n")))
-    println("Transform in==out: PASS ($( length(split(in_text,"\n",keepempty=false)) ) exprs)")
+    @test sort(filter(!isempty, split(in_text, "\n"))) ==
+        sort(filter(!isempty, split(out_text, "\n")))
+    println(
+        "Transform in==out: PASS ($( length(split(in_text,"\n",keepempty=false)) ) exprs)"
+    )
 end
 
 # =====================================================================
@@ -148,12 +156,12 @@ end
 # =====================================================================
 
 @testset "clear command" begin
-    PAYLOAD    = "(clear_test a)\n(clear_test b)\n"
+    PAYLOAD = "(clear_test a)\n(clear_test b)\n"
     space_expr = "(clear_test \$v)"
-    id_expr    = "\$v"
+    id_expr = "\$v"
 
     upload_url = "$SERVER_URL/upload/$(HTTP.escapeuri(id_expr))/$(HTTP.escapeuri(space_expr))"
-    clear_url  = "$SERVER_URL/clear/$(HTTP.escapeuri(space_expr))"
+    clear_url = "$SERVER_URL/clear/$(HTTP.escapeuri(space_expr))"
     export_url = "$SERVER_URL/export/$(HTTP.escapeuri(space_expr))/$(HTTP.escapeuri(id_expr))"
     status_url = "$SERVER_URL/status/$(HTTP.escapeuri(space_expr))"
 
@@ -176,12 +184,12 @@ end
 # =====================================================================
 
 @testset "count command" begin
-    PAYLOAD    = "(count_test a)\n(count_test b)\n(count_test c)\n"
+    PAYLOAD = "(count_test a)\n(count_test b)\n(count_test c)\n"
     space_expr = "(count_test \$v)"
-    id_expr    = "\$v"
+    id_expr = "\$v"
 
     upload_url = "$SERVER_URL/upload/$(HTTP.escapeuri(id_expr))/$(HTTP.escapeuri(space_expr))"
-    count_url  = "$SERVER_URL/count/$(HTTP.escapeuri(space_expr))"
+    count_url = "$SERVER_URL/count/$(HTTP.escapeuri(space_expr))"
     status_url = "$SERVER_URL/status/$(HTTP.escapeuri(space_expr))"
 
     r = HTTP.post(upload_url; body=PAYLOAD)
@@ -207,16 +215,16 @@ end
 # =====================================================================
 
 @testset "metta_thread exec rules" begin
-    data_prefix  = "adams_hw_data"
-    in_expr      = "($data_prefix \$v)"
+    data_prefix = "adams_hw_data"
+    in_expr = "($data_prefix \$v)"
     exec_pattern = "(exec \$l_p \$patterns \$templates)"
 
-    upload_url       = "$SERVER_URL/upload/$(HTTP.escapeuri(in_expr))/$(HTTP.escapeuri(in_expr))"
-    exec_upload_url  = "$SERVER_URL/upload/$(HTTP.escapeuri(exec_pattern))/$(HTTP.escapeuri(exec_pattern))"
+    upload_url = "$SERVER_URL/upload/$(HTTP.escapeuri(in_expr))/$(HTTP.escapeuri(in_expr))"
+    exec_upload_url = "$SERVER_URL/upload/$(HTTP.escapeuri(exec_pattern))/$(HTTP.escapeuri(exec_pattern))"
     metta_thread_url = "$SERVER_URL/metta_thread?location=$data_prefix"
-    export_url       = "$SERVER_URL/export/$(HTTP.escapeuri(in_expr))/\$v"
-    status_url       = "$SERVER_URL/status/$(HTTP.escapeuri(in_expr))"
-    thread_status_url= "$SERVER_URL/status/$(HTTP.escapeuri("(exec $data_prefix)"))"
+    export_url = "$SERVER_URL/export/$(HTTP.escapeuri(in_expr))/\$v"
+    status_url = "$SERVER_URL/status/$(HTTP.escapeuri(in_expr))"
+    thread_status_url = "$SERVER_URL/status/$(HTTP.escapeuri("(exec $data_prefix)"))"
 
     # Upload data
     upload_payload = "\n($data_prefix T)\n($data_prefix (foo 1))\n($data_prefix (foo 2))"
@@ -225,8 +233,9 @@ end
     wait_for_status_eq(status_url, "pathClear")
 
     # Upload exec rules
-    exec_payload = "\n(exec ($data_prefix 0)   (, ($data_prefix (foo \$x)))   (, ($data_prefix (bar \$x))) )" *
-                   "\n(exec ($data_prefix 0)   (, ($data_prefix T))            (, ($data_prefix ran_exec)) )"
+    exec_payload =
+        "\n(exec ($data_prefix 0)   (, ($data_prefix (foo \$x)))   (, ($data_prefix (bar \$x))) )" *
+        "\n(exec ($data_prefix 0)   (, ($data_prefix T))            (, ($data_prefix ran_exec)) )"
     r = HTTP.post(exec_upload_url; body=exec_payload)
     @test r.status == 200
     wait_for_status_eq(status_url, "pathClear")
@@ -252,5 +261,9 @@ end
 # =====================================================================
 
 println("\n=== Stopping test server ===")
-try; HTTP.get("$SERVER_URL/stop?wait_for_idle"); catch; end
+try
+    ; HTTP.get("$SERVER_URL/stop?wait_for_idle");
+catch
+    ;
+end
 println("=== Server HTTP integration tests complete ===")

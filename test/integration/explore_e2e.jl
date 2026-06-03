@@ -14,8 +14,13 @@ let
     serve_background!(ss, EXPLORE_PORT)
     deadline = time() + 15.0
     while time() < deadline
-        try; HTTP.get("$EXPLORE_BASE/status/-"; readtimeout=1, connect_timeout=1); break
-        catch; sleep(0.2); end
+        try
+            ;
+            HTTP.get("$EXPLORE_BASE/status/-"; readtimeout=1, connect_timeout=1);
+            break
+        catch
+            ; sleep(0.2);
+        end
     end
 end
 
@@ -56,7 +61,9 @@ sleep(0.3)
     if !isempty(items)
         tok_ints = collect(items[1].token)
         if !isempty(tok_ints)
-            tok_encoded = join(["%$(uppercase(string(UInt8(b), base=16, pad=2)))" for b in tok_ints])
+            tok_encoded = join([
+                "%$(uppercase(string(UInt8(b), base=16, pad=2)))" for b in tok_ints
+            ])
             status2, body2 = _exp_get("/explore/(node%20%24x)/$tok_encoded")
             @test status2 == 200
             items2 = JSON3.read(body2)
@@ -82,4 +89,8 @@ end
 
 _exp_get("/clear/%24")
 
-try; HTTP.get("$EXPLORE_BASE/stop"); catch; end
+try
+    ; HTTP.get("$EXPLORE_BASE/stop");
+catch
+    ;
+end
