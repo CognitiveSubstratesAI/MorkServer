@@ -1,13 +1,19 @@
 using Test
 using MorkServer
-using Aqua
+# Aqua is test-only [extras]: present under Pkg.test/CI but NOT in a plain
+# `julia --project=. test/runtests.jl` run (no sandbox). Load optionally.
+const _HAS_AQUA = try; @eval using Aqua; true; catch; false; end
 
 @testset "MorkServer" begin
-    @testset "Aqua quality" begin
-        # deps_compat check_extras=false: the Test/Aqua extras are dev-only; runtime
-        # deps (HTTP, JSON3, MORK, PathMap) carry [compat] (MORK/PathMap dev-linked
-        # via [sources], so deps_compat skips them).
-        Aqua.test_all(MorkServer; deps_compat=(check_extras=false,))
+    if _HAS_AQUA
+        @testset "Aqua quality" begin
+            # deps_compat check_extras=false: the Test/Aqua extras are dev-only; runtime
+            # deps (HTTP, JSON3, MORK, PathMap) carry [compat] (MORK/PathMap dev-linked
+            # via [sources], so deps_compat skips them).
+            Aqua.test_all(MorkServer; deps_compat=(check_extras=false,))
+        end
+    else
+        @info "Aqua not loadable (plain julia --project=.) — runs under Pkg.test/CI"
     end
 
     # Unit tests — no server; exercise a layer directly.
