@@ -2,7 +2,12 @@ using Test
 using MorkServer
 # Aqua is test-only [extras]: present under Pkg.test/CI but NOT in a plain
 # `julia --project=. test/runtests.jl` run (no sandbox). Load optionally.
-const _HAS_AQUA = try; @eval using Aqua; true; catch; false; end
+const _HAS_AQUA = try
+    @eval using Aqua
+    true
+catch
+    false
+end
 
 @testset "MorkServer" begin
     if _HAS_AQUA

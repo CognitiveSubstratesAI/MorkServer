@@ -16,7 +16,7 @@ function wait_status(url, expected, timeout=10.0)
             j = JSON3.read(HTTP.get(url; readtimeout=2).body)
             String(j[:status]) == expected && return true
         catch
-            ;
+
         end
         sleep(0.1)
     end
@@ -56,8 +56,8 @@ end
     lines = sort(filter(!isempty, split(exp, "\n")))
     println("Export results:")
     for l in lines
-        ;
-        println("  $l");
+
+        println("  $l")
     end
 
     expected = sort(["(data T)", "(data ran_exec)", "(data (foo 1))",

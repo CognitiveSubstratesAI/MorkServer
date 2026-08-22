@@ -17,7 +17,7 @@ function wait_ne(url, expected, timeout=15.0)
             s = String(j[:status])
             s != expected && return s
         catch
-            ;
+
         end
         sleep(0.2)
     end
@@ -31,7 +31,7 @@ function wait_eq(url, expected, timeout=15.0)
             j = JSON3.read(HTTP.get(url; readtimeout=3).body)
             String(j[:status]) == expected && return true
         catch
-            ;
+
         end
         sleep(0.2)
     end

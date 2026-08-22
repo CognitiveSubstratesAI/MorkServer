@@ -17,11 +17,11 @@ using MorkServer
 
 # ── Shortcuts ─────────────────────────────────────────────────────────────────
 
-t(path = joinpath(@__DIR__, "..", "test", "runtests.jl")) = include(path)
+t(path=joinpath(@__DIR__, "..", "test", "runtests.jl")) = include(path)
 
 # Start server in background for interactive testing
-function start_server(port::Int = 8000)
-    s = MorkServer.MorkServer(port = port)
+function start_server(port::Int=8000)
+    s = MorkServer.MorkServer(; port=port)
     @async serve!(s)
     sleep(1)
     println("MorkServer on :$port")

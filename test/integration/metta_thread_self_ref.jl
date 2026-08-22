@@ -20,7 +20,7 @@ function wait_status(url, expected, timeout=10.0)
             j = JSON3.read(HTTP.get(url; readtimeout=2).body)
             String(j[:status]) == expected && return true
         catch
-            ;
+
         end
         sleep(0.1)
     end

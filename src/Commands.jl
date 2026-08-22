@@ -169,7 +169,7 @@ function cmd_copy(
         reader === nothing && return work_error(503, "copy: source path is locked")
         writer = ss_new_writer(ss, dst_prefix)
         if writer === nothing
-            ss_release_reader!(ss, reader);
+            ss_release_reader!(ss, reader)
             return work_error(503, "copy: dest path is locked")
         end
         try
@@ -639,12 +639,12 @@ function cmd_metta_thread_suspend(
             old_paths = Vector{UInt8}[]
             rz0 = read_zipper_at_path(ss.space.btm, suspend_prefix)
             while zipper_to_next_val!(rz0)
-                ;
-                push!(old_paths, copy(rz0.prefix_buf));
+
+                push!(old_paths, copy(rz0.prefix_buf))
             end
             for p in old_paths
-                ;
-                remove_val_at!(ss.space.btm, p);
+
+                remove_val_at!(ss.space.btm, p)
             end
 
             # Try to acquire writer on exec_prefix (blocks the running thread)

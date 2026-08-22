@@ -26,7 +26,7 @@ function wait_for_server(timeout_s=10.0)
             r = HTTP.get("$SERVER_URL/status/-"; readtimeout=1, connect_timeout=1)
             r.status == 200 && return true
         catch
-            ;
+
         end
         sleep(0.01)
     end
@@ -45,7 +45,7 @@ function wait_for_status_eq(url::String, expected::String, timeout_s=10.0)
         try
             get_url_status(url) == expected && return true
         catch
-            ;
+
         end
         sleep(0.01)
     end
@@ -59,7 +59,7 @@ function wait_for_status_ne(url::String, expected::String, timeout_s=10.0)
             s = get_url_status(url)
             s != expected && return s
         catch
-            ;
+
         end
         sleep(0.01)
     end
@@ -262,9 +262,9 @@ end
 
 println("\n=== Stopping test server ===")
 try
-    ;
-    HTTP.get("$SERVER_URL/stop?wait_for_idle");
+
+    HTTP.get("$SERVER_URL/stop?wait_for_idle")
 catch
-    ;
+
 end
 println("=== Server HTTP integration tests complete ===")

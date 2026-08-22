@@ -32,7 +32,7 @@ function wait_lock_free(path="$BASE/status/-", timeout_s=5.0)
             s = String(j[:status])
             s ∉ ("locked", "counting") && return s
         catch
-            ;
+
         end
         sleep(0.1)
     end
@@ -47,12 +47,12 @@ srv = serve_background!(ss, E2E_PORT)
 deadline = time() + 15.0
 while time() < deadline
     try
-        ;
-        HTTP.get("$BASE/status/-"; readtimeout=1, connect_timeout=1);
-        break;
+
+        HTTP.get("$BASE/status/-"; readtimeout=1, connect_timeout=1)
+        break
     catch
-        ;
-        sleep(0.2);
+
+        sleep(0.2)
     end
 end
 
