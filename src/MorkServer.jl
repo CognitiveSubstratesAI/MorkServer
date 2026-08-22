@@ -33,7 +33,7 @@ module MorkServer
 using HTTP
 using JSON3
 using MORK
-using PathMap
+using PathMaps
 
 # Pull in the MORK-internal kernel symbols the server layer uses but that
 # aren't part of MORK's public export list. Explicit `using MORK: ...` so
@@ -50,7 +50,7 @@ using MORK: Space, ACT_PATH,
     space_interpret!, space_backup_paths,
     space_val_count,
     asource_new, source_factor, ExecError
-using PathMap: read_zipper_at_path, set_val_at!
+using PathMaps: read_zipper_at_path, set_val_at!
 
 # ── Server layer source files (in dependency order — same as mork/server/) ──
 include("ResourceStore.jl")
