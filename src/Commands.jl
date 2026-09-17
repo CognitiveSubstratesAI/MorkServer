@@ -135,7 +135,7 @@ function cmd_clear(
             # iteration instead of direct bulk-remove (handles node misalignment).
             rz = read_zipper_at_path(ss.space.btm, prefix)
             paths = Vector{UInt8}[]
-            while zipper_to_next_val!(rz)
+            while to_next_val!(rz)
                 push!(paths, copy(rz.prefix_buf))
             end
             for p in paths
@@ -181,10 +181,10 @@ function cmd_copy(
             # graft-then-write-into-shared leaves the source byte-identical.) This needs
             # the COW work landed in PathMap ec138d4/aa76fbd — before that, sharing the
             # subtrie would have been unsafe, which is why this was previously a value-copy.
-            src_anr = tr_get_focus_anr(trie_ref_at_path(ss.space.btm, src_prefix))
+            src_anr = get_focus(trie_ref_at_path(ss.space.btm, src_prefix))
             wz = write_zipper(ss.space.btm)
-            wz_descend_to!(wz, dst_prefix)
-            wz_graft!(wz, src_anr)
+            descend_to!(wz, dst_prefix)
+            graft!(wz, src_anr)
         finally
             ss_release_reader!(ss, reader)
             ss_release_writer!(ss, writer)
@@ -213,7 +213,7 @@ function cmd_count(
         Threads.@spawn begin
             try
                 rz = read_zipper_at_path(ss.space.btm, prefix)
-                n = zipper_val_count(rz)
+                n = val_count(rz)
                 ss_set_status!(ss, prefix, StatusRecord(STATUS_COUNT_RESULT, string(n), n))
             finally
                 ss_release_reader!(ss, reader)
@@ -308,8 +308,8 @@ function cmd_export(
             elseif fmt == FMT_RAW
                 rz = read_zipper_at_path(ss.space.btm, prefix)
                 n = 0
-                while zipper_to_next_val!(rz) && n < max_write
-                    println(io, repr(collect(zipper_path(rz))))
+                while to_next_val!(rz) && n < max_write
+                    println(io, repr(collect(path(rz))))
                     n += 1
                 end
             elseif fmt == FMT_PATHS
@@ -638,7 +638,7 @@ function cmd_metta_thread_suspend(
             # Clear prior suspended atoms at suspend_prefix
             old_paths = Vector{UInt8}[]
             rz0 = read_zipper_at_path(ss.space.btm, suspend_prefix)
-            while zipper_to_next_val!(rz0)
+            while to_next_val!(rz0)
 
                 push!(old_paths, copy(rz0.prefix_buf))
             end
@@ -669,7 +669,7 @@ function cmd_metta_thread_suspend(
                 # Collect all exec atoms at exec_prefix and move to suspend_prefix
                 exec_paths = Vector{UInt8}[]
                 rz = read_zipper_at_path(ss.space.btm, exec_prefix)
-                while zipper_to_next_val!(rz)
+                while to_next_val!(rz)
                     push!(exec_paths, copy(rz.prefix_buf))
                 end
 
